@@ -92,7 +92,11 @@ func (m *settingsManager) load() (uiSettings, error) {
 	}
 
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return settings, err
+		// Handle unmarshal errors (e.g., old string format vs new int format)
+		// by returning default settings. This allows automatic migration from
+		// old format to new format when SaveSortMode is called.
+		m.logger.Warnw("failed to parse settings file, using defaults", "error", err, "path", m.filePath)
+		return uiSettings{}, nil
 	}
 
 	return settings, nil
