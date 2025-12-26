@@ -15,7 +15,6 @@
 package ssh_config_file
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,10 +26,13 @@ import (
 // toDomainServer converts ssh_config.Config to a slice of domain.Server.
 // When a Host directive contains multiple hosts (e.g., "Host host1 host2"),
 // this function expands them into separate Server entries with the same configuration.
+// When the same alias appears in multiple Host blocks, settings are merged (later values override).
 func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
-	servers := make([]domain.Server, 0, len(cfg.Hosts))
-	for _, host := range cfg.Hosts {
+	// Map to track servers by alias, slice to preserve insertion order
+	serverMap := make(map[string]*domain.Server)
+	var order []string
 
+	for _, host := range cfg.Hosts {
 		aliases := make([]string, 0, len(host.Patterns))
 
 		for _, pattern := range host.Patterns {
@@ -45,42 +47,37 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 			continue
 		}
 
-		// Build a template server with all KV nodes mapped
-		templateServer := domain.Server{
-			Port:          22,
-			IdentityFiles: []string{},
-		}
-
-		for _, node := range host.Nodes {
-			kvNode, ok := node.(*ssh_config.KV)
-			if !ok {
-				continue
-			}
-			r.mapKVToServer(&templateServer, kvNode)
-		}
-
-		// Expand each alias into a separate server entry
+		// For each alias, create or merge server entry
 		for _, alias := range aliases {
-			server := r.copyServer(templateServer)
-			server.Alias = alias
-			server.Aliases = []string{alias}
-			servers = append(servers, server)
+			server, exists := serverMap[alias]
+			if !exists {
+				server = &domain.Server{
+					Alias:         alias,
+					Aliases:       []string{alias},
+					Port:          22,
+					IdentityFiles: []string{},
+				}
+				serverMap[alias] = server
+				order = append(order, alias)
+			}
+
+			// Map all KV nodes to the server (later values override)
+			for _, node := range host.Nodes {
+				kvNode, ok := node.(*ssh_config.KV)
+				if !ok {
+					continue
+				}
+				r.mapKVToServer(server, kvNode)
+			}
 		}
 	}
 
+	// Build result slice in insertion order
+	servers := make([]domain.Server, 0, len(order))
+	for _, alias := range order {
+		servers = append(servers, *serverMap[alias])
+	}
 	return servers
-}
-
-// copyServer creates a deep copy of a domain.Server to avoid shared slice references.
-func (r *Repository) copyServer(src domain.Server) domain.Server {
-	src.IdentityFiles = slices.Clone(src.IdentityFiles)
-	src.LocalForward = slices.Clone(src.LocalForward)
-	src.RemoteForward = slices.Clone(src.RemoteForward)
-	src.DynamicForward = slices.Clone(src.DynamicForward)
-	src.SendEnv = slices.Clone(src.SendEnv)
-	src.SetEnv = slices.Clone(src.SetEnv)
-	src.Tags = slices.Clone(src.Tags)
-	return src
 }
 
 // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
