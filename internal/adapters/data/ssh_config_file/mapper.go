@@ -15,6 +15,7 @@
 package ssh_config_file
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,8 @@ import (
 )
 
 // toDomainServer converts ssh_config.Config to a slice of domain.Server.
+// When a Host directive contains multiple hosts (e.g., "Host host1 host2"),
+// this function expands them into separate Server entries with the same configuration.
 func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 	servers := make([]domain.Server, 0, len(cfg.Hosts))
 	for _, host := range cfg.Hosts {
@@ -41,9 +44,9 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 		if len(aliases) == 0 {
 			continue
 		}
-		server := domain.Server{
-			Alias:         aliases[0],
-			Aliases:       aliases,
+
+		// Build a template server with all KV nodes mapped
+		templateServer := domain.Server{
 			Port:          22,
 			IdentityFiles: []string{},
 		}
@@ -53,14 +56,31 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 			if !ok {
 				continue
 			}
-
-			r.mapKVToServer(&server, kvNode)
+			r.mapKVToServer(&templateServer, kvNode)
 		}
 
-		servers = append(servers, server)
+		// Expand each alias into a separate server entry
+		for _, alias := range aliases {
+			server := r.copyServer(templateServer)
+			server.Alias = alias
+			server.Aliases = []string{alias}
+			servers = append(servers, server)
+		}
 	}
 
 	return servers
+}
+
+// copyServer creates a deep copy of a domain.Server to avoid shared slice references.
+func (r *Repository) copyServer(src domain.Server) domain.Server {
+	src.IdentityFiles = slices.Clone(src.IdentityFiles)
+	src.LocalForward = slices.Clone(src.LocalForward)
+	src.RemoteForward = slices.Clone(src.RemoteForward)
+	src.DynamicForward = slices.Clone(src.DynamicForward)
+	src.SendEnv = slices.Clone(src.SendEnv)
+	src.SetEnv = slices.Clone(src.SetEnv)
+	src.Tags = slices.Clone(src.Tags)
+	return src
 }
 
 // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
