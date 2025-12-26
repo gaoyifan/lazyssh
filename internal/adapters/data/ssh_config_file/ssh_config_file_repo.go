@@ -16,6 +16,7 @@ package ssh_config_file
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -163,4 +164,9 @@ func (r *Repository) SetPinned(alias string, pinned bool) error {
 // RecordSSH increments the SSH access count and updates the last seen timestamp for a server.
 func (r *Repository) RecordSSH(alias string) error {
 	return r.metadataManager.recordSSH(alias)
+}
+
+// UpdateLastSeen updates the last seen timestamp for a server.
+func (r *Repository) UpdateLastSeen(alias string, lastSeen time.Time) error {
+	return r.metadataManager.updateLastSeen(alias, lastSeen)
 }

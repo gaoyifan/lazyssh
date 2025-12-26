@@ -153,9 +153,24 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 	return err
 }
 
+// UpdateLastSeen updates the last seen timestamp for a server.
+func (s *serverService) UpdateLastSeen(alias string, lastSeen time.Time) error {
+	err := s.serverRepository.UpdateLastSeen(alias, lastSeen)
+	if err != nil {
+		s.logger.Errorw("failed to update last seen", "error", err, "alias", alias, "lastSeen", lastSeen)
+	}
+	return err
+}
+
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
+
+	// Record SSH metadata (LastSeen, SSHCount) before entering the session
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	}
+
 	cmd := exec.Command("ssh", alias)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -165,10 +180,6 @@ func (s *serverService) SSH(alias string) error {
 		return err
 	}
 
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
-	}
-
 	s.logger.Infow("ssh end", "alias", alias)
 	return nil
 }
@@ -176,6 +187,12 @@ func (s *serverService) SSH(alias string) error {
 // SSHWithArgs runs system ssh with provided extra args (e.g., -L/-R/-D) for the given alias.
 func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	s.logger.Infow("ssh start (with args)", "alias", alias, "args", extraArgs)
+
+	// Record SSH metadata (LastSeen, SSHCount) before entering the session
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	}
+
 	args := append([]string{}, extraArgs...)
 	args = append(args, alias)
 	// #nosec G204
@@ -186,9 +203,6 @@ func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	if err := cmd.Run(); err != nil {
 		s.logger.Errorw("ssh (with args) failed", "alias", alias, "error", err)
 		return err
-	}
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
 	}
 	s.logger.Infow("ssh end (with args)", "alias", alias)
 	return nil

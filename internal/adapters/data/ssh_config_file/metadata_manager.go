@@ -164,6 +164,24 @@ func (m *metadataManager) recordSSH(alias string) error {
 	return m.saveAll(metadata)
 }
 
+func (m *metadataManager) updateLastSeen(alias string, lastSeen time.Time) error {
+	metadata, err := m.loadAll()
+	if err != nil {
+		m.logger.Errorw("failed to load metadata in updateLastSeen", "path", m.filePath, "alias", alias, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	meta := metadata[alias]
+	if lastSeen.IsZero() {
+		meta.LastSeen = ""
+	} else {
+		meta.LastSeen = lastSeen.Format(time.RFC3339)
+	}
+
+	metadata[alias] = meta
+	return m.saveAll(metadata)
+}
+
 func (m *metadataManager) ensureDirectory() error {
 	dir := filepath.Dir(m.filePath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
