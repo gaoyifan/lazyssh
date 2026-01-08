@@ -43,6 +43,11 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 		return event
 	}
 
+	if event.Key() == tcell.KeyCtrlD {
+		t.handleQuit()
+		return nil
+	}
+
 	switch event.Rune() {
 	case 'q':
 		t.handleQuit()
