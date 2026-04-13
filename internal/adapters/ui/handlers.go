@@ -85,6 +85,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 't':
 		t.handleTagsEdit()
 		return nil
+	case 'm':
+		t.handleToggleTmuxCC()
+		return nil
 	case 'f':
 		t.handlePortForward()
 		return nil
@@ -229,12 +232,41 @@ func (t *tui) handleReturnToSearch() {
 
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
-
 		t.app.Suspend(func() {
+			if t.isTmuxCCEnabled(server.Alias) {
+				_ = t.serverService.SSHWithRemoteCommand(server.Alias, []string{"-t"}, []string{"tmux", "-CC"})
+				return
+			}
 			_ = t.serverService.SSH(server.Alias)
 		})
 		t.refreshServerList()
 	}
+}
+
+func (t *tui) handleToggleTmuxCC() {
+	server, ok := t.serverList.GetSelectedServer()
+	if !ok {
+		return
+	}
+
+	enabled := !t.isTmuxCCEnabled(server.Alias)
+	if t.settings == nil {
+		t.showStatusTempColor("Failed to save tmux -CC setting", "#FF6B6B")
+		return
+	}
+
+	if err := t.settings.SaveTmuxCCEnabled(server.Alias, enabled); err != nil {
+		t.logger.Warnw("failed to save tmux -CC preference", "error", err, "alias", server.Alias, "enabled", enabled)
+		t.showStatusTempColor("Failed to save tmux -CC setting", "#FF6B6B")
+		return
+	}
+
+	t.details.UpdateServer(server)
+	if enabled {
+		t.showStatusTemp("tmux -CC enabled for " + server.Alias)
+		return
+	}
+	t.showStatusTemp("tmux -CC disabled for " + server.Alias)
 }
 
 func (t *tui) handleServerSelectionChange(server domain.Server) {

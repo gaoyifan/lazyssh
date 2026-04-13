@@ -33,6 +33,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var execCommand = exec.Command
+
 type serverService struct {
 	serverRepository ports.ServerRepository
 	logger           *zap.SugaredLogger
@@ -171,11 +173,7 @@ func (s *serverService) SSH(alias string) error {
 		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
 	}
 
-	cmd := exec.Command("ssh", alias)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := runSSHCommand(nil, alias, nil); err != nil {
 		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
 		return err
 	}
@@ -193,19 +191,43 @@ func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
 	}
 
-	args := append([]string{}, extraArgs...)
-	args = append(args, alias)
-	// #nosec G204
-	cmd := exec.Command("ssh", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := runSSHCommand(extraArgs, alias, nil); err != nil {
 		s.logger.Errorw("ssh (with args) failed", "alias", alias, "error", err)
 		return err
 	}
 	s.logger.Infow("ssh end (with args)", "alias", alias)
 	return nil
+}
+
+// SSHWithRemoteCommand runs system ssh with provided extra args and a remote command after the alias.
+func (s *serverService) SSHWithRemoteCommand(alias string, extraArgs []string, remoteCommand []string) error {
+	s.logger.Infow("ssh start (with remote command)", "alias", alias, "args", extraArgs, "remoteCommand", remoteCommand)
+
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	}
+
+	if err := runSSHCommand(extraArgs, alias, remoteCommand); err != nil {
+		s.logger.Errorw("ssh (with remote command) failed", "alias", alias, "error", err)
+		return err
+	}
+
+	s.logger.Infow("ssh end (with remote command)", "alias", alias)
+	return nil
+}
+
+func runSSHCommand(extraArgs []string, alias string, remoteCommand []string) error {
+	args := append([]string{}, extraArgs...)
+	args = append(args, alias)
+	args = append(args, remoteCommand...)
+
+	// #nosec G204
+	cmd := execCommand("ssh", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }
 
 // StartForward starts ssh port forwarding in the background and tracks the process.

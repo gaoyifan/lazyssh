@@ -100,7 +100,7 @@ func (t *tui) buildComponents() *tui {
 	t.serverList = NewServerList().
 		OnSelectionChange(t.handleServerSelectionChange).
 		OnReturnToSearch(t.handleReturnToSearch)
-	t.details = NewServerDetails()
+	t.details = NewServerDetails().SetTmuxCCEnabledProvider(t.isTmuxCCEnabled)
 	t.statusBar = NewStatusBar()
 
 	// default sort mode
@@ -170,4 +170,18 @@ func (t *tui) persistSortMode() {
 	if err := t.settings.SaveSortMode(t.sortMode); err != nil {
 		t.logger.Warnw("failed to save sort mode preference", "error", err)
 	}
+}
+
+func (t *tui) isTmuxCCEnabled(alias string) bool {
+	if t.settings == nil {
+		return true
+	}
+
+	enabled, err := t.settings.LoadTmuxCCEnabled(alias)
+	if err != nil {
+		t.logger.Warnw("failed to load tmux -CC preference", "error", err, "alias", alias)
+		return true
+	}
+
+	return enabled
 }

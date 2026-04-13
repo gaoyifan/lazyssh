@@ -29,7 +29,8 @@ type settingsManager struct {
 }
 
 type uiSettings struct {
-	SortMode SortMode `json:"sort_mode,omitempty"`
+	SortMode      SortMode        `json:"sort_mode,omitempty"`
+	TmuxCCByAlias map[string]bool `json:"tmux_cc_by_alias,omitempty"`
 }
 
 func newSettingsManager(logger *zap.SugaredLogger) *settingsManager {
@@ -73,6 +74,46 @@ func (m *settingsManager) SaveSortMode(mode SortMode) error {
 	}
 
 	settings.SortMode = mode
+	return m.save(settings)
+}
+
+func (m *settingsManager) LoadTmuxCCEnabled(alias string) (bool, error) {
+	if m == nil {
+		return true, errors.New("nil settings manager")
+	}
+
+	settings, err := m.load()
+	if err != nil {
+		return true, err
+	}
+
+	if settings.TmuxCCByAlias == nil {
+		return true, nil
+	}
+
+	enabled, ok := settings.TmuxCCByAlias[alias]
+	if !ok {
+		return true, nil
+	}
+
+	return enabled, nil
+}
+
+func (m *settingsManager) SaveTmuxCCEnabled(alias string, enabled bool) error {
+	if m == nil {
+		return errors.New("nil settings manager")
+	}
+
+	settings, err := m.load()
+	if err != nil {
+		return err
+	}
+
+	if settings.TmuxCCByAlias == nil {
+		settings.TmuxCCByAlias = make(map[string]bool)
+	}
+	settings.TmuxCCByAlias[alias] = enabled
+
 	return m.save(settings)
 }
 
