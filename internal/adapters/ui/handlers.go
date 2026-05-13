@@ -237,7 +237,7 @@ func (t *tui) handleServerConnect() {
 				_ = t.serverService.SSHWithRemoteCommand(
 					server.Alias,
 					[]string{"-t"},
-					[]string{"tmux", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
+					[]string{"tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
 				)
 				return
 			}

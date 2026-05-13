@@ -66,7 +66,7 @@ func TestSSHWithRemoteCommandBuildsExpectedSSHArgs(t *testing.T) {
 	err := service.SSHWithRemoteCommand(
 		"prod",
 		[]string{"-t"},
-		[]string{"tmux", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
+		[]string{"tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
 	)
 	if err != nil {
 		t.Fatalf("SSHWithRemoteCommand() error = %v", err)
@@ -76,7 +76,7 @@ func TestSSHWithRemoteCommandBuildsExpectedSSHArgs(t *testing.T) {
 		t.Fatalf("execCommand name = %q, want %q", gotName, "ssh")
 	}
 
-	wantArgs := []string{"-t", "prod", "tmux", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"}
+	wantArgs := []string{"-t", "prod", "tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"}
 	if !reflect.DeepEqual(gotArgs, wantArgs) {
 		t.Fatalf("execCommand args = %v, want %v", gotArgs, wantArgs)
 	}
