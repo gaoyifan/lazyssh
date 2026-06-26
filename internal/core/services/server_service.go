@@ -33,7 +33,12 @@ import (
 	"go.uber.org/zap"
 )
 
-var execCommand = exec.Command
+const sshCommand = "tssh"
+
+var (
+	execCommand    = exec.Command
+	defaultSSHArgs = []string{"--udp"}
+)
 
 type serverService struct {
 	serverRepository ports.ServerRepository
@@ -164,7 +169,7 @@ func (s *serverService) UpdateLastSeen(alias string, lastSeen time.Time) error {
 	return err
 }
 
-// SSH starts an interactive SSH session to the given alias using the system's ssh client.
+// SSH starts an interactive SSH session to the given alias.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
 
@@ -182,7 +187,7 @@ func (s *serverService) SSH(alias string) error {
 	return nil
 }
 
-// SSHWithArgs runs system ssh with provided extra args (e.g., -L/-R/-D) for the given alias.
+// SSHWithArgs runs ssh with provided extra args (e.g., -L/-R/-D) for the given alias.
 func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	s.logger.Infow("ssh start (with args)", "alias", alias, "args", extraArgs)
 
@@ -199,7 +204,7 @@ func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	return nil
 }
 
-// SSHWithRemoteCommand runs system ssh with provided extra args and a remote command after the alias.
+// SSHWithRemoteCommand runs ssh with provided extra args and a remote command after the alias.
 func (s *serverService) SSHWithRemoteCommand(alias string, extraArgs []string, remoteCommand []string) error {
 	s.logger.Infow("ssh start (with remote command)", "alias", alias, "args", extraArgs, "remoteCommand", remoteCommand)
 
@@ -217,17 +222,26 @@ func (s *serverService) SSHWithRemoteCommand(alias string, extraArgs []string, r
 }
 
 func runSSHCommand(extraArgs []string, alias string, remoteCommand []string) error {
-	args := append([]string{}, extraArgs...)
-	args = append(args, alias)
-	args = append(args, remoteCommand...)
+	args := buildSSHArgs(extraArgs, alias, remoteCommand)
 
 	// #nosec G204
-	cmd := execCommand("ssh", args...)
+	cmd := execCommand(sshCommand, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+func buildSSHArgs(extraArgs []string, alias string, remoteCommand []string) []string {
+	args := append([]string{}, defaultSSHArgs...)
+	args = append(args, extraArgs...)
+	if len(remoteCommand) > 0 {
+		args = append(args, "--")
+	}
+	args = append(args, alias)
+	args = append(args, remoteCommand...)
+	return args
 }
 
 // StartForward starts ssh port forwarding in the background and tracks the process.
@@ -238,10 +252,12 @@ func (s *serverService) StartForward(alias string, extraArgs []string) (int, err
 	}
 	s.fwMu.Unlock()
 
-	extraArgs = append(extraArgs, "-N", alias)
+	args := append([]string{}, defaultSSHArgs...)
+	args = append(args, extraArgs...)
+	args = append(args, "-N", alias)
 
 	// #nosec G204
-	cmd := exec.Command("ssh", extraArgs...)
+	cmd := exec.Command(sshCommand, args...)
 
 	// Detach from TTY: discard stdio
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
@@ -263,7 +279,7 @@ func (s *serverService) StartForward(alias string, extraArgs []string) (int, err
 	cmd.SysProcAttr = sysProcAttr
 
 	if err := cmd.Start(); err != nil {
-		return 0, fmt.Errorf("failed to start ssh: %w", err)
+		return 0, fmt.Errorf("failed to start %s: %w", sshCommand, err)
 	}
 
 	proc := cmd.Process

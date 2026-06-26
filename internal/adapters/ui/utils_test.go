@@ -35,7 +35,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				User:         "user",
 				LocalForward: []string{"8080:localhost:80", "3306:db.internal:3306"},
 			},
-			expected: []string{"ssh", "-L", "8080:localhost:80", "-L", "3306:db.internal:3306", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-L", "8080:localhost:80", "-L", "3306:db.internal:3306", "user@example.com"},
 		},
 		{
 			name: "remote forward",
@@ -45,7 +45,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				User:          "user",
 				RemoteForward: []string{"8080:localhost:3000", "*:80:localhost:8080"},
 			},
-			expected: []string{"ssh", "-R", "8080:localhost:3000", "-R", "*:80:localhost:8080", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-R", "8080:localhost:3000", "-R", "*:80:localhost:8080", "user@example.com"},
 		},
 		{
 			name: "dynamic forward",
@@ -55,7 +55,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				User:           "user",
 				DynamicForward: []string{"1080", "localhost:1081"},
 			},
-			expected: []string{"ssh", "-D", "1080", "-D", "localhost:1081", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-D", "1080", "-D", "localhost:1081", "user@example.com"},
 		},
 		{
 			name: "all forward types",
@@ -67,7 +67,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				RemoteForward:  []string{"9090:localhost:9090"},
 				DynamicForward: []string{"1080"},
 			},
-			expected: []string{"ssh", "-L", "8080:localhost:80", "-R", "9090:localhost:9090", "-D", "1080", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-L", "8080:localhost:80", "-R", "9090:localhost:9090", "-D", "1080", "user@example.com"},
 		},
 		{
 			name: "forward with bind address",
@@ -77,7 +77,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				User:         "user",
 				LocalForward: []string{"127.0.0.1:8080:localhost:80", "*:3000:localhost:3000"},
 			},
-			expected: []string{"ssh", "-L", "127.0.0.1:8080:localhost:80", "-L", "*:3000:localhost:3000", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-L", "127.0.0.1:8080:localhost:80", "-L", "*:3000:localhost:3000", "user@example.com"},
 		},
 		{
 			name: "forward with additional options",
@@ -89,7 +89,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				ExitOnForwardFailure: "yes",
 				GatewayPorts:         "clientspecified",
 			},
-			expected: []string{"ssh", "-L", "8080:localhost:80", "-o", "ExitOnForwardFailure=yes", "-o", "GatewayPorts=clientspecified", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-L", "8080:localhost:80", "-o", "ExitOnForwardFailure=yes", "-o", "GatewayPorts=clientspecified", "user@example.com"},
 		},
 		{
 			name: "clear all forwardings",
@@ -100,7 +100,7 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				LocalForward:        []string{"8080:localhost:80"},
 				ClearAllForwardings: "yes",
 			},
-			expected: []string{"ssh", "-L", "8080:localhost:80", "-o", "ClearAllForwardings=yes", "user@example.com"},
+			expected: []string{"tssh", "--udp", "-L", "8080:localhost:80", "-o", "ClearAllForwardings=yes", "user@example.com"},
 		},
 	}
 
@@ -115,9 +115,9 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				}
 			}
 
-			// Additional check: ensure the command starts with "ssh"
-			if !strings.HasPrefix(result, "ssh ") {
-				t.Errorf("BuildSSHCommand() should start with 'ssh ', got: %q", result)
+			// Additional check: ensure the command starts with "tssh --udp"
+			if !strings.HasPrefix(result, "tssh --udp ") {
+				t.Errorf("BuildSSHCommand() should start with 'tssh --udp ', got: %q", result)
 			}
 		})
 	}
@@ -138,8 +138,8 @@ func TestBuildSSHCommand_CompleteCommand(t *testing.T) {
 	result := BuildSSHCommand(server)
 
 	// Check command structure
-	if !strings.HasPrefix(result, "ssh ") {
-		t.Errorf("Command should start with 'ssh ', got: %q", result)
+	if !strings.HasPrefix(result, "tssh --udp ") {
+		t.Errorf("Command should start with 'tssh --udp ', got: %q", result)
 	}
 
 	// Check port
