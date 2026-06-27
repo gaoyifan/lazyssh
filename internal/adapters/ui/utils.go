@@ -134,9 +134,9 @@ func humanizeDuration(t time.Time) string {
 }
 
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.
-// Format: tssh --udp [options] [user@]host [command]
+// Format: tssh [options] [user@]host [command]
 func BuildSSHCommand(s domain.Server) string {
-	parts := []string{"tssh", "--udp"}
+	parts := []string{"tssh"}
 
 	// Add proxy and connection options
 	addProxyOptions(&parts, s)

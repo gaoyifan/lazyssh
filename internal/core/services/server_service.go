@@ -37,7 +37,7 @@ const sshCommand = "tssh"
 
 var (
 	execCommand    = exec.Command
-	defaultSSHArgs = []string{"--udp"}
+	defaultSSHArgs []string
 )
 
 type serverService struct {

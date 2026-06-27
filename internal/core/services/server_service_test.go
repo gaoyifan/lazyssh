@@ -76,7 +76,7 @@ func TestSSHWithRemoteCommandBuildsExpectedSSHArgs(t *testing.T) {
 		t.Fatalf("execCommand name = %q, want %q", gotName, "tssh")
 	}
 
-	wantArgs := []string{"--udp", "-t", "--", "prod", "tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"}
+	wantArgs := []string{"-t", "--", "prod", "tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"}
 	if !reflect.DeepEqual(gotArgs, wantArgs) {
 		t.Fatalf("execCommand args = %v, want %v", gotArgs, wantArgs)
 	}
