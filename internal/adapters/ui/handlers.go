@@ -236,7 +236,7 @@ func (t *tui) handleServerConnect() {
 			if t.isTmuxCCEnabled(server.Alias) {
 				_ = t.serverService.SSHWithRemoteCommand(
 					server.Alias,
-					[]string{"-t"},
+					[]string{"-t", "--tmux-integration"},
 					[]string{"tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
 				)
 				return
