@@ -33,7 +33,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const sshCommand = "tssh"
+const (
+	herdrCommand = "herdr"
+	sshCommand   = "tssh"
+)
 
 var (
 	execCommand    = exec.Command
@@ -169,14 +172,32 @@ func (s *serverService) UpdateLastSeen(alias string, lastSeen time.Time) error {
 	return err
 }
 
+func (s *serverService) recordSSH(alias string) {
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	}
+}
+
+// HerdrRemote attaches a local Herdr client to the remote host.
+func (s *serverService) HerdrRemote(alias string) error {
+	s.logger.Infow("herdr remote start", "alias", alias)
+	s.recordSSH(alias)
+
+	if err := runInteractiveCommand(herdrCommand, "--remote", alias); err != nil {
+		s.logger.Errorw("herdr remote failed", "alias", alias, "error", err)
+		return err
+	}
+
+	s.logger.Infow("herdr remote end", "alias", alias)
+	return nil
+}
+
 // SSH starts an interactive SSH session to the given alias.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
 
 	// Record SSH metadata (LastSeen, SSHCount) before entering the session
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
-	}
+	s.recordSSH(alias)
 
 	if err := runSSHCommand(nil, alias, nil); err != nil {
 		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
@@ -192,9 +213,7 @@ func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	s.logger.Infow("ssh start (with args)", "alias", alias, "args", extraArgs)
 
 	// Record SSH metadata (LastSeen, SSHCount) before entering the session
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
-	}
+	s.recordSSH(alias)
 
 	if err := runSSHCommand(extraArgs, alias, nil); err != nil {
 		s.logger.Errorw("ssh (with args) failed", "alias", alias, "error", err)
@@ -204,28 +223,33 @@ func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	return nil
 }
 
-// SSHWithRemoteCommand runs ssh with provided extra args and a remote command after the alias.
-func (s *serverService) SSHWithRemoteCommand(alias string, extraArgs []string, remoteCommand []string) error {
-	s.logger.Infow("ssh start (with remote command)", "alias", alias, "args", extraArgs, "remoteCommand", remoteCommand)
+// TmuxCC attaches to the persistent remote tmux control-mode session.
+func (s *serverService) TmuxCC(alias string) error {
+	s.logger.Infow("tmux -CC start", "alias", alias)
 
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
-	}
+	s.recordSSH(alias)
 
-	if err := runSSHCommand(extraArgs, alias, remoteCommand); err != nil {
-		s.logger.Errorw("ssh (with remote command) failed", "alias", alias, "error", err)
+	if err := runSSHCommand(
+		[]string{"-t", "--tmux-integration"},
+		alias,
+		[]string{"tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
+	); err != nil {
+		s.logger.Errorw("tmux -CC failed", "alias", alias, "error", err)
 		return err
 	}
 
-	s.logger.Infow("ssh end (with remote command)", "alias", alias)
+	s.logger.Infow("tmux -CC end", "alias", alias)
 	return nil
 }
 
 func runSSHCommand(extraArgs []string, alias string, remoteCommand []string) error {
 	args := buildSSHArgs(extraArgs, alias, remoteCommand)
+	return runInteractiveCommand(sshCommand, args...)
+}
 
+func runInteractiveCommand(name string, args ...string) error {
 	// #nosec G204
-	cmd := execCommand(sshCommand, args...)
+	cmd := execCommand(name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -167,6 +167,7 @@ make run
 | /     | Toggle search bar             |
 | ↑↓/jk | Navigate servers              |
 | Enter | SSH into selected server      |
+| m     | Cycle Herdr / tmux -CC / off  |
 | c     | Copy SSH command to clipboard |
 | g     | Ping selected server          |
 | r     | Refresh background data       |

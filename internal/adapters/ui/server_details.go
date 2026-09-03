@@ -25,7 +25,7 @@ import (
 
 type ServerDetails struct {
 	*tview.TextView
-	tmuxCCEnabledProvider func(alias string) bool
+	muxModeProvider func(alias string) muxMode
 }
 
 func NewServerDetails() *ServerDetails {
@@ -36,8 +36,8 @@ func NewServerDetails() *ServerDetails {
 	return details
 }
 
-func (sd *ServerDetails) SetTmuxCCEnabledProvider(fn func(alias string) bool) *ServerDetails {
-	sd.tmuxCCEnabledProvider = fn
+func (sd *ServerDetails) SetMuxModeProvider(fn func(alias string) muxMode) *ServerDetails {
+	sd.muxModeProvider = fn
 	return sd
 }
 
@@ -69,13 +69,9 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		lastSeen = "Never"
 	}
 	serverKey := strings.Join(server.IdentityFiles, ", ")
-	tmuxCCEnabled := true
-	if sd.tmuxCCEnabledProvider != nil {
-		tmuxCCEnabled = sd.tmuxCCEnabledProvider(server.Alias)
-	}
-	tmuxCCText := "on"
-	if !tmuxCCEnabled {
-		tmuxCCText = "off"
+	muxMode := defaultMuxMode
+	if sd.muxModeProvider != nil {
+		muxMode = sd.muxModeProvider(server.Alias)
 	}
 
 	pinnedStr := "true"
@@ -97,9 +93,9 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  tmux -CC: [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
+		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Mux:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
 		aliasText, hostText, userText, portText,
-		serverKey, tmuxCCText, tagsText, pinnedStr,
+		serverKey, muxMode.String(), tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
 
 	// Advanced settings section (only show non-empty fields)
@@ -227,7 +223,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	// Commands list
-	text += "\n[::b]Commands:[-]\n  Enter: SSH connect\n  m: Toggle tmux -CC\n  f: Port forward\n  x: Stop forwarding\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
+	text += "\n[::b]Commands:[-]\n  Enter: SSH connect\n  m: Cycle mux mode\n  f: Port forward\n  x: Stop forwarding\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
 
 	sd.TextView.SetText(text)
 }

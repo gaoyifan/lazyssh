@@ -86,7 +86,7 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 		t.handleTagsEdit()
 		return nil
 	case 'm':
-		t.handleToggleTmuxCC()
+		t.handleCycleMuxMode()
 		return nil
 	case 'f':
 		t.handlePortForward()
@@ -233,44 +233,40 @@ func (t *tui) handleReturnToSearch() {
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		t.app.Suspend(func() {
-			if t.isTmuxCCEnabled(server.Alias) {
-				_ = t.serverService.SSHWithRemoteCommand(
-					server.Alias,
-					[]string{"-t", "--tmux-integration"},
-					[]string{"tmux", "-u", "-L", "lazyssh", "-CC", "new-session", "-A", "-s", "lazyssh"},
-				)
-				return
+			mode := t.muxMode(server.Alias)
+			switch mode {
+			case muxModeHerdr:
+				_ = t.serverService.HerdrRemote(server.Alias)
+			case muxModeTmuxCC:
+				_ = t.serverService.TmuxCC(server.Alias)
+			case muxModeOff:
+				_ = t.serverService.SSH(server.Alias)
 			}
-			_ = t.serverService.SSH(server.Alias)
 		})
 		t.refreshServerList()
 	}
 }
 
-func (t *tui) handleToggleTmuxCC() {
+func (t *tui) handleCycleMuxMode() {
 	server, ok := t.serverList.GetSelectedServer()
 	if !ok {
 		return
 	}
 
-	enabled := !t.isTmuxCCEnabled(server.Alias)
+	mode := t.muxMode(server.Alias).next()
 	if t.settings == nil {
-		t.showStatusTempColor("Failed to save tmux -CC setting", "#FF6B6B")
+		t.showStatusTempColor("Failed to save mux setting", "#FF6B6B")
 		return
 	}
 
-	if err := t.settings.SaveTmuxCCEnabled(server.Alias, enabled); err != nil {
-		t.logger.Warnw("failed to save tmux -CC preference", "error", err, "alias", server.Alias, "enabled", enabled)
-		t.showStatusTempColor("Failed to save tmux -CC setting", "#FF6B6B")
+	if err := t.settings.SaveMuxMode(server.Alias, mode); err != nil {
+		t.logger.Warnw("failed to save mux preference", "error", err, "alias", server.Alias, "mode", mode)
+		t.showStatusTempColor("Failed to save mux setting", "#FF6B6B")
 		return
 	}
 
 	t.details.UpdateServer(server)
-	if enabled {
-		t.showStatusTemp("tmux -CC enabled for " + server.Alias)
-		return
-	}
-	t.showStatusTemp("tmux -CC disabled for " + server.Alias)
+	t.showStatusTemp("Mux: " + mode.String() + " for " + server.Alias)
 }
 
 func (t *tui) handleServerSelectionChange(server domain.Server) {

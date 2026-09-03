@@ -27,9 +27,10 @@ type ServerService interface {
 	DeleteServer(server domain.Server) error
 	SetPinned(alias string, pinned bool) error
 	UpdateLastSeen(alias string, lastSeen time.Time) error
+	HerdrRemote(alias string) error
 	SSH(alias string) error
 	SSHWithArgs(alias string, extraArgs []string) error
-	SSHWithRemoteCommand(alias string, extraArgs []string, remoteCommand []string) error
+	TmuxCC(alias string) error
 	StartForward(alias string, extraArgs []string) (int, error)
 	StopForwarding(alias string) error
 	IsForwarding(alias string) bool
